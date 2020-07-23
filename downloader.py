@@ -5,6 +5,12 @@ import os
 with open('repositories.csv', newline='') as csvfile:
     gitreader = csv.reader(csvfile, delimiter=',', quotechar='|')
     for row in gitreader:        
-        cmd = "wget "+row[4]+" -O ./"+row[1]+"_"+row[2]+".zip"
+        filename = "./"+row[1]+"_xxx_"+row[2]+".zip"
+
+        if(os.path.isfile(filename)):     
+            print(filename," already there")       
+            continue
+
+        cmd = "wget "+row[4]+" -O "+filename
         print(cmd)
         os.system(cmd)
