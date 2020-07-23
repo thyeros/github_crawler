@@ -73,55 +73,62 @@ dates = ["2013-01-01", "2020-12-01"]
 start, end = [datetime.strptime(_, "%Y-%m-%d") for _ in dates]
 dateRange = OrderedDict(((start + timedelta(_)).strftime(r"%Y-%m"), None) for _ in xrange((end - start).days)).keys()
 
+goodLicense={
+"+license:afl-3.0+license:artistic-2.0+license:bsl-1.0+license:bsd-2-clause+license:bsd-3-clause+license:mpl-2.0+license:unlicense+license:apache-2.0+license:cc+license:wtfpl+license:epl-1.0+license:agpl-3.0+license:gpl+license:lgpl+license:isc+license:ms-pl+license:mpl-2.0+license:osl-3.0+license:ncsa+license:postgresql+license:zlib",
+"+license:mit"}
+
+
 
 #Run queries to get information in json format and download ZIP file for each repository
 for year in range(2013, 2020):
 	for month in range(1,12):
+		for lic in goodLicense:
+			curMonth = str(year)+"-"+format(month,'02d') 
+			lastDay = format(calendar.monthrange(year,month)[1],'02d') 
 
-		curMonth = str(year)+"-"+format(month,'02d') 
-		lastDay = format(calendar.monthrange(year,month)[1],'02d') 
+			SUB_QUERY = "+created%3A"+curMonth+"-01.."+curMonth+"-"+lastDay+lic
+			#Obtain the number of pages for the current subquery (by default each page contains 100 items)
+			url = URL + QUERY + SUB_QUERY + PARAMETERS			
+			print "Processing "+url
+			dataRead = simplejson.loads(getUrl(url))	
 
-		SUB_QUERY = "+created%3A"+curMonth+"-01.."+curMonth+"-"+lastDay
-		#Obtain the number of pages for the current subquery (by default each page contains 100 items)
-		url = URL + QUERY + SUB_QUERY + PARAMETERS			
-		print "Processing "+url
-		dataRead = simplejson.loads(getUrl(url))	
+			if(dataRead.get('total_count') is None):
+				print dataRead
 
-		if(dataRead.get('total_count') is None):
-			print dataRead
+			numberOfPages = int(math.ceil(dataRead.get('total_count')/100.0))	
 
-		numberOfPages = int(math.ceil(dataRead.get('total_count')/100.0))	
+			#A delay between different queries
+			time.sleep(DELAY_BETWEEN_QUERYS)			
 
-		
 
-		#Results are in different pages
-		for currentPage in range(1, numberOfPages+1):
-			url = URL + QUERY + SUB_QUERY + PARAMETERS + "&page=" + str(currentPage) 
-			print "SUB Processing "+url + " ...out of "+str(numberOfPages)		
-			dataRead = simplejson.loads(getUrl(url))
-			
-			#Iteration over all the repositories in the current json content page
-			for item in dataRead['items']:
-				#Obtain user and repository names
-				user = item['owner']['login']
-				repository = item['name']
 
-				#Update repositories counter
-				countOfRepositories = countOfRepositories + 1
+			#Results are in different pages
+			for currentPage in range(1, numberOfPages+1):
+				url = URL + QUERY + SUB_QUERY + PARAMETERS + "&page=" + str(currentPage) 
+				print "SUB Processing "+url + " ...out of "+str(numberOfPages)		
+				dataRead = simplejson.loads(getUrl(url))
+				
+				#Iteration over all the repositories in the current json content page
+				for item in dataRead['items']:
+					#Obtain user and repository names
+					user = item['owner']['login']
+					repository = item['name']
 
-				if item['license']  is not None:
-					if item['license']['key'] is not None:								
-						#Download the zip file of the current project				
-						print ("'%s' from user '%s' ... '%s'" %(repository,user,item['license']['key'] ))
-						url = item['clone_url']
-						fileToDownload = url[0:len(url)-4] + "/archive/master.zip"
-						fileName = item['full_name'].replace("/","_") + ".zip"
-						#wget.download(fileToDownload, out=OUTPUT_FOLDER + fileName)
-										
-						repositories.writerow([user, repository, url, fileToDownload, item['license']['key']])
+					#Update repositories counter
+					countOfRepositories = countOfRepositories + 1
 
-			#A delay between different subqueries
-			time.sleep(DELAY_BETWEEN_QUERYS)
+							
+					#Download the zip file of the current project				
+					print ("'%s' from user '%s' ... '%s'" %(repository,user,item['license']['key'] ))
+					url = item['clone_url']
+					fileToDownload = url[0:len(url)-4] + "/archive/master.zip"
+					fileName = item['full_name'].replace("/","_") + ".zip"
+					#wget.download(fileToDownload, out=OUTPUT_FOLDER + fileName)
+									
+					repositories.writerow([curMonth, user, repository, url, fileToDownload, item['license']['key']])
+
+				#A delay between different subqueries
+				time.sleep(DELAY_BETWEEN_QUERYS)
 
 print "DONE! " + str(countOfRepositories) + " repositories have been processed."
 csvfile.close()
